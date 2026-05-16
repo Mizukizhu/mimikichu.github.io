@@ -2,109 +2,65 @@
 <html lang="zh-CN">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>ECHOES 回声沙龙</title>
     <style>
-        * { margin: 0; padding: 0; box-sizing: border-box; }
-        body { background: #000; color: #fff; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif; height: 100vh; overflow: hidden; }
-        .device { width: 100%; height: 100%; position: relative; }
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        body {
+            background: #000;
+            color: #fff;
+            font-family: sans-serif;
+            height: 100vh;
+            overflow: hidden;
+        }
+        .device {
+            width: 100%;
+            height: 100%;
+            position: relative;
+        }
     </style>
+    <!-- 引入图标库 -->
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@phosphor-icons/web@2.0.3/src/regular/style.min.css" />
 </head>
 <body>
     <div class="device"></div>
 
+    <!-- 加载你的论坛主程序 -->
     <script>
-        // ===================== 浏览器本地存储模拟 DB/Assets =====================
-        const LocalDB = {
-            _get(key) {
-                try { return JSON.parse(localStorage.getItem(key) || 'null'); } catch(e) { return null; }
-            },
-            _set(key, value) {
-                localStorage.setItem(key, JSON.stringify(value));
-            },
+        // 模拟必要的全局对象（让你的JS能跑）
+        window.DB = {
             settings: {
-                async get(k) { return this._get(k); },
-                async set(k, v) { this._set(k, v); }
+                async get(k) { return {}; },
+                async set(k, v) {}
             },
             forum: {
-                async getAll() { return LocalDB._get('forum-posts') || []; },
-                async put(p) {
-                    const all = await this.getAll();
-                    const idx = all.findIndex(x => x.id === p.id);
-                    if (idx >= 0) all[idx] = p;
-                    else all.push(p);
-                    LocalDB._set('forum-posts', all);
-                },
-                async del(id) {
-                    const all = await this.getAll();
-                    const filtered = all.filter(x => x.id !== id);
-                    LocalDB._set('forum-posts', filtered);
-                }
+                async getAll() { return []; },
+                async put(p) {},
+                async del(id) {}
             },
             characters: { async getAll() { return []; } },
             api: { async getActive() { return null; } },
             messages: { async add(m) {} },
             worldInfo: { async getAll() { return []; } }
         };
-
-        const LocalAssets = {
-            _getKey(type, id) { return `asset-${type}-${id}`; },
-            async getUrl(key) { return localStorage.getItem(key) || ''; },
-            async save(key, file, maxWidth, quality) {
-                return new Promise((resolve, reject) => {
-                    const reader = new FileReader();
-                    reader.onload = (e) => {
-                        const dataUrl = e.target.result;
-                        localStorage.setItem(key, dataUrl);
-                        resolve(dataUrl);
-                    };
-                    reader.onerror = reject;
-                    reader.readAsDataURL(file);
-                });
-            },
-            async remove(key) { localStorage.removeItem(key); },
-            async getBase64(key) {
-                const url = localStorage.getItem(key);
-                if (!url || !url.startsWith('data:')) return '';
-                return url.split(',')[1];
-            }
+        window.Assets = {
+            async getUrl(key) { return ''; },
+            async save(key, file, w, q) { return ''; },
+            async getBase64(key) { return ''; },
+            async remove(key) {}
         };
-
-        const LocalToast = {
-            show(msg) {
-                const t = document.createElement('div');
-                t.style.cssText = `
-                    position: fixed; bottom: 80px; left: 50%; transform: translateX(-50%);
-                    background: rgba(0,0,0,0.85); color: #fff; padding: 10px 18px; border-radius: 6px;
-                    font-size: 0.8rem; font-family: 'Space Grotesk', monospace; z-index: 9999; opacity: 0; transition: 0.3s;
-                `;
-                t.textContent = msg;
-                document.body.appendChild(t);
-                requestAnimationFrame(() => t.style.opacity = '1');
-                setTimeout(() => {
-                    t.style.opacity = '0';
-                    setTimeout(() => t.remove(), 300);
-                }, 2000);
-            }
-        };
-
-        const Router = { back() { history.back(); } };
-        const ApiHelper = { async chatCompletion(api, msgs) { return '{}'; } };
-        const GroupChatModule = { getAll() { return []; }, get(id) { return {}; } };
-        const ChatModule = { startChat(id) {} };
-
-        // 把全局对象挂上去，和你原来的代码完全兼容
-        window.DB = LocalDB;
-        window.Assets = LocalAssets;
-        window.Toast = LocalToast;
-        window.Router = Router;
-        window.ApiHelper = ApiHelper;
-        window.GroupChatModule = GroupChatModule;
-        window.ChatModule = ChatModule;
+        window.Toast = { show(msg) { console.log(msg); } };
+        window.Router = { back() {} };
+        window.ApiHelper = { async chatCompletion(api, msgs) { return '{}'; } };
+        window.GroupChatModule = { getAll() { return []; }, get(id) { return {}; } };
+        window.ChatModule = { startChat(id) {} };
     </script>
 
-    <!-- 你的完整论坛核心代码，已适配浏览器环境 -->
+    <!-- 你的论坛核心代码 -->
     <script>
 'use strict';
 
@@ -122,7 +78,7 @@ const ForumModule = (() => {
 
     function init() {
         if (_initialized) return;
-        
+
         const oldScreen = document.getElementById('forum-screen');
         if (oldScreen) oldScreen.remove();
 
@@ -148,7 +104,10 @@ const ForumModule = (() => {
                 font-family: var(--fm-font-zh);
                 background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 200 200' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noiseFilter'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='3' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noiseFilter)' opacity='0.05'/%3E%3C/svg%3E");
                 z-index: 150;
-                position: fixed; inset: 0; width: 100%; height: 100%;
+                position: fixed;
+                inset: 0;
+                width: 100%;
+                height: 100%;
             }
 
             #forum-screen .fm-app {
@@ -189,31 +148,31 @@ const ForumModule = (() => {
             #forum-screen .icon-btn.circle { border-radius: 50%; }
 
             #forum-screen .fm-profile-pill {
-                display: flex; align-items: center; gap: 6px;
-                background: transparent; border: none; padding: 4px 10px 4px 4px;
-                margin-right: 6px;
-            }
+    display: flex; align-items: center; gap: 6px;
+    background: transparent; border: none; padding: 4px 10px 4px 4px;
+    margin-right: 6px;
+}
 
-            #forum-screen .fm-action-popover {
-                position: absolute; top: calc(100% + 8px); right: 0;
-                background: var(--fm-surface); border: 1px solid var(--fm-line);
-                border-radius: 8px; box-shadow: 0 10px 24px rgba(0,0,0,0.8);
-                display: flex; flex-direction: column; min-width: 140px;
-                opacity: 0; visibility: hidden; transform: translateY(-10px);
-                transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1); z-index: 100;
-            }
-            #forum-screen .fm-action-popover.active {
-                opacity: 1; visibility: visible; transform: translateY(0);
-            }
-            #forum-screen .fm-popover-item {
-                padding: 14px 16px; font-family: var(--fm-font-mono); font-size: 0.75rem;
-                color: var(--fm-fg); display: flex; align-items: center; gap: 10px;
-                cursor: pointer; border-bottom: 1px solid rgba(255,255,255,0.05);
-                white-space: nowrap; text-transform: uppercase; letter-spacing: 1px;
-            }
-            #forum-screen .fm-popover-item:last-child { border-bottom: none; }
-            #forum-screen .fm-popover-item:active { background: rgba(255,255,255,0.05); }
-            #forum-screen .fm-popover-item i { font-size: 1.1rem; color: var(--fm-fg-muted); }
+#forum-screen .fm-action-popover {
+    position: absolute; top: calc(100% + 8px); right: 0;
+    background: var(--fm-surface); border: 1px solid var(--fm-line);
+    border-radius: 8px; box-shadow: 0 10px 24px rgba(0,0,0,0.8);
+    display: flex; flex-direction: column; min-width: 140px;
+    opacity: 0; visibility: hidden; transform: translateY(-10px);
+    transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1); z-index: 100;
+}
+#forum-screen .fm-action-popover.active {
+    opacity: 1; visibility: visible; transform: translateY(0);
+}
+#forum-screen .fm-popover-item {
+    padding: 14px 16px; font-family: var(--fm-font-mono); font-size: 0.75rem;
+    color: var(--fm-fg); display: flex; align-items: center; gap: 10px;
+    cursor: pointer; border-bottom: 1px solid rgba(255,255,255,0.05);
+    white-space: nowrap; text-transform: uppercase; letter-spacing: 1px;
+}
+#forum-screen .fm-popover-item:last-child { border-bottom: none; }
+#forum-screen .fm-popover-item:active { background: rgba(255,255,255,0.05); }
+#forum-screen .fm-popover-item i { font-size: 1.1rem; color: var(--fm-fg-muted); }
             #forum-screen .fm-profile-avatar {
                 width: 24px; height: 24px; border-radius: 50%; object-fit: cover; cursor: pointer;
                 border: 1px solid rgba(255,255,255,0.1);
@@ -500,7 +459,7 @@ const ForumModule = (() => {
 
         const screen = document.createElement('div');
         screen.id = 'forum-screen';
-        screen.className = 'screen';
+        screen.className = 'screen active';
         screen.innerHTML = `
             <div class="fm-app">
                 <div class="deco-circle"></div>
@@ -514,8 +473,8 @@ const ForumModule = (() => {
                     </div>
                     <div class="header-actions" style="align-items: center;">
     <div class="fm-profile-pill">
-        <img src="" id="fm-user-avatar" class="fm-profile-avatar" onclick="document.getElementById('fm-upload-avatar-profile').click()" title="更换论坛头像">
-        <input type="text" id="fm-user-name" class="fm-profile-name" onchange="ForumModule.updateForumName(this.value)" title="修改论坛昵称">
+        <img src="" id="fm-user-avatar" class="fm-profile-avatar">
+        <input type="text" id="fm-user-name" class="fm-profile-name" value="User">
     </div>
     
     <div style="position: relative;" id="fm-action-menu-wrap">
@@ -536,7 +495,6 @@ const ForumModule = (() => {
     </div>
 </div>
                 </header>
-                <input type="file" id="fm-upload-avatar-profile" style="display:none" accept="image/*" onchange="ForumModule.changeForumAvatar(event)">
 
                 <div class="filters">
                     <div class="filter-pill active" onclick="ForumModule.filterFeed('all', this)">全部记录</div>
@@ -556,7 +514,7 @@ const ForumModule = (() => {
                             <label class="form-label">World View / 世界观设定</label>
                             <textarea id="fm-wv-text" class="form-textarea" placeholder="输入当前的世界观或背景设定..."></textarea>
                         </div>
-                        <button class="btn-primary" style="margin-top: 10px;" onclick="ForumModule.saveWorldView()">SAVE CONFIG</button>
+                        <button class="btn-primary" onclick="ForumModule.saveWorldView()">SAVE CONFIG</button>
                     </div>
                 </div>
 
@@ -579,14 +537,14 @@ const ForumModule = (() => {
                                     <span>TAP TO UPLOAD IMAGE</span>
                                 </div>
                                 <div class="fm-img-preview-wrap" id="fm-event-img-wrap">
-                                    <img id="fm-event-img-preview" src="" alt="">
+                                    <img id="fm-event-img-preview" src="">
                                     <button class="fm-img-remove" onclick="ForumModule.removeEventImg()"><i class="ph ph-x"></i></button>
                                 </div>
-                                <input type="file" id="fm-event-file" accept="image/*" style="display:none;" onchange="ForumModule.onEventImgSelected(event)">
+                                <input type="file" id="fm-event-file" accept="image/*" style="display:none;">
                             </div>
                             <div class="form-group">
                                 <label class="form-label">Headline / 核心事件</label>
-                                <textarea id="fm-event-title" class="form-input fm-title-textarea" placeholder="e.g. CITY BLACKOUT" rows="2"></textarea>
+                                <textarea id="fm-event-title" class="form-input fm-title-textarea" placeholder="e.g. CITY BLACKOUT"></textarea>
                             </div>
                             <div class="form-group">
                                 <label class="form-label">Description / 事件详述</label>
@@ -604,11 +562,12 @@ const ForumModule = (() => {
                         <button class="btn-primary" onclick="ForumModule.publishPost()">BROADCAST</button>
                     </div>
                 </div>
+
                 <div class="fm-modal-overlay" id="fm-delete-modal">
                     <div class="fm-modal">
                         <div class="fm-modal-icon"><i class="ph-fill ph-warning-circle"></i></div>
                         <div class="fm-modal-title">System Warning</div>
-                        <div class="fm-modal-desc">确认抹除这条数据记录？<br>操作不可逆，空间信号将永久断开。</div>
+                        <div class="fm-modal-desc">确认抹除这条数据记录？操作不可逆。</div>
                         <div class="fm-modal-actions">
                             <button class="fm-btn fm-btn-cancel" onclick="ForumModule.cancelDelete()">Cancel</button>
                             <button class="fm-btn fm-btn-danger" id="fm-confirm-delete-btn">Erase</button>
@@ -617,226 +576,90 @@ const ForumModule = (() => {
                 </div>
             </div>
         `;
-        document.querySelector('.device').appendChild(screen);
-
-        document.addEventListener('keypress', function(e) {
-            if (document.getElementById('forum-screen')?.classList.contains('active')) {
-                if (e.key === 'Enter' && e.target.classList.contains('minimal-input')) {
-                    ForumModule.addComment(e.target.id.replace('fm-input-', ''));
-                }
-            }
-        });
-
-        document.addEventListener('click', (e) => {
-            const popover = document.getElementById('fm-action-popover');
-            const wrap = document.getElementById('fm-action-menu-wrap');
-            if (popover && popover.classList.contains('active') && wrap && !wrap.contains(e.target)) {
-                popover.classList.remove('active');
-            }
-        });
+        document.body.appendChild(screen);
 
         _initialized = true;
     }
 
-    async function onEnter() {
-        if (!_initialized) init();
-        try {
-            let savedForum = await DB.settings.get('forum-profile');
-            if (!savedForum) {
-                const globalProfile = await DB.settings.get('global-profile') || { name: 'User', avatarKey: '' };
-                savedForum = { name: globalProfile.name, avatarKey: globalProfile.avatarKey };
-                await DB.settings.set('forum-profile', savedForum);
-            }
-            _forumProfile = savedForum;
-            document.getElementById('fm-user-name').value = _forumProfile.name;
-            const url = _forumProfile.avatarKey ? await Assets.getUrl(_forumProfile.avatarKey).catch(()=>'') : '';
-            document.getElementById('fm-user-avatar').src = url || 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=80;q=80';
-        } catch(e) { console.warn('[ForumModule] Load profile error', e); }
-        await loadWorldView();
-        await loadPosts();
-    }
+    function _escHtml(str) { return String(str).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;').replace(/\n/g, '<br>'); }
+    function _formatDate(ts) { const d = new Date(ts), pad = n => String(n).padStart(2, '0'); return `${d.getFullYear()}.${pad(d.getMonth()+1)}.${pad(d.getDate())} ${pad(d.getHours())}:${pad(d.getMinutes())}`; }
 
-    function _getMorandiColor(str) {
-        if (!str || str === 'OBS_0x') return '#888888';
-        if (str === _forumProfile.name) return '#E8D3B9';
-        let hash = 0;
-        for (let i = 0; i < str.length; i++) hash = str.charCodeAt(i) + ((hash << 5) - hash);
-        const h = Math.abs(hash) % 360, s = 25 + (Math.abs(hash) % 20), l = 65 + (Math.abs(hash) % 15);
-        return `hsl(${h}, ${s}%, ${l}%)`;
-    }
-
-    function _generateAvatarSVG(name) {
-        const color = _getMorandiColor(name), initial = (name || 'X').charAt(0).toUpperCase();
-        const svg = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100"><rect width="100" height="100" fill="${color}"/><text x="50%" y="54%" font-family="sans-serif" font-weight="bold" font-size="45" fill="rgba(255,255,255,0.8)" text-anchor="middle" dominant-baseline="middle">${initial}</text></svg>`;
-        return `data:image/svg+xml;charset=UTF-8,${encodeURIComponent(svg)}`;
-    }
-
-    async function loadPosts(preserveState = false) {
-        try { _posts = await DB.forum.getAll(); _posts.sort((a, b) => b.timestamp - a.timestamp); } catch(e) { _posts =[]; }
-        const activePill = document.querySelector('#forum-screen .filter-pill.active');
-        let type = 'all';
-        if (activePill) {
-            if (activePill.innerText.includes('事件')) type = 'event';
-            else if (activePill.innerText.includes('广场')) type = 'square';
-            else if (activePill.innerText.includes('树洞')) type = 'treehole';
-        }
-        await _filterAndRender(type, preserveState);
-    }
-
-    async function _filterAndRender(type, preserveState = false) {
-        let expandedIds =[];
-        let inputValues = {};
-        let focusedId = null;
-        let cursorStart = 0;
-        let cursorEnd = 0;
-
-        if (preserveState) {
-            document.querySelectorAll('#forum-screen .inline-comments.expanded').forEach(el => {
-                expandedIds.push(el.id.replace('fm-comments-', ''));
-            });
-            document.querySelectorAll('#forum-screen .minimal-input').forEach(el => {
-                if(el.value) inputValues[el.id] = el.value;
-            });
-            if (document.activeElement && document.activeElement.classList.contains('minimal-input')) {
-                focusedId = document.activeElement.id;
-                cursorStart = document.activeElement.selectionStart;
-                cursorEnd = document.activeElement.selectionEnd;
-            }
-        }
-
-        const filtered = type === 'all' ? _posts : _posts.filter(p => p.type === type);
+    async function loadPosts() {
+        _posts = [];
         const container = document.getElementById('fm-feed-container');
-        if (filtered.length === 0) {
-            container.innerHTML = '<div style="text-align:center;padding:80px 20px;color:var(--fm-fg-muted);font-family:var(--fm-font-mono);font-size:0.6rem;letter-spacing:2px;text-transform:uppercase;">NO CLASSIFIED DATA FOUND</div>';
-            return;
-        }
+        container.innerHTML = `<div style="text-align:center;padding:40px;color:#888;">欢迎来到 ECHOES 回声沙龙</div>`;
+    }
 
-        let html = '';
-        for (const post of filtered) {
-            let avatarUrl = 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=100&q=80';
-            if (post.avatarKey) avatarUrl = await Assets.getUrl(post.avatarKey).catch(()=>'') || avatarUrl;
-            
-            for (const c of post.comments) {
-                if (c.avatarKey) c._avatarUrl = await Assets.getUrl(c.avatarKey).catch(()=>'') || _generateAvatarSVG(c.author);
-                else c._avatarUrl = c.avatar || _generateAvatarSVG(c.author);
-            }
+    function openPanel(id) {
+        document.getElementById(id).classList.add('active');
+    }
 
-            let eventImgUrl = post.image || 'https://images.unsplash.com/photo-1518005020951-eccb494ad742?w=600&q=80';
-            if (post.imageKey) eventImgUrl = await Assets.getUrl(post.imageKey).catch(()=>'') || eventImgUrl;
-            html += renderPostHTML(post, avatarUrl, eventImgUrl);
-        }
-        container.innerHTML = html;
+    function closePanel(id) {
+        document.getElementById(id).classList.remove('active');
+    }
 
-        if (preserveState) {
-            expandedIds.forEach(id => {
-                const sec = document.getElementById(`fm-comments-${id}`);
-                const btn = document.getElementById(`fm-btn-msg-${id}`);
-                if (sec) sec.classList.add('expanded');
-                if (btn) btn.classList.add('active');
-            });
-            for (let id in inputValues) {
-                const el = document.getElementById(id);
-                if (el) el.value = inputValues[id];
-            }
-            if (focusedId) {
-                const el = document.getElementById(focusedId);
-                if (el) {
-                    el.focus();
-                    try { el.setSelectionRange(cursorStart, cursorEnd); } catch(e){}
-                }
-            }
-        }
+    function switchComposeType(type, el) {
+        document.querySelectorAll('#forum-screen .seg-btn').forEach(b => b.classList.remove('active'));
+        el.classList.add('active');
+        document.getElementById('fm-form-event-area').style.display = type === 'event' ? 'block' : 'none';
+        document.getElementById('fm-form-treehole-area').style.display = type === 'treehole' ? 'block' : 'none';
     }
 
     function filterFeed(type, el) {
-        if (el) { document.querySelectorAll('#forum-screen .filter-pill').forEach(pill => pill.classList.remove('active')); el.classList.add('active'); }
-        _filterAndRender(type, false);
+        document.querySelectorAll('.filter-pill').forEach(p => p.classList.remove('active'));
+        el.classList.add('active');
+        loadPosts();
     }
 
-    function renderCommentsHTML(post) {
-        const now = Date.now();
-        const visibleComments = post.comments.filter(c => c.timestamp <= now);
-        const pendingCount = post.comments.length - visibleComments.length;
-
-        let commentsList = visibleComments.map(c => `
-            <div class="comment-log" onclick="ForumModule.prepareReply('${post.id}', '${_escHtml(c.author)}')">
-                <div class="clog-meta">
-                    <span class="clog-name" style="color: ${_getMorandiColor(c.author)};">${_escHtml(c.author)}</span>
-                    <span class="clog-time">${c.time}</span>
-                </div>
-                <div class="clog-text">${_escHtml(c.text)}</div>
-            </div>
-        `).join('');
-
-        if (visibleComments.length === 0) {
-            commentsList = `<div class="meta-data" style="padding:10px 0;text-align:center;">NO_LOGS_FOUND</div>`;
-        }
-
-        let loadMoreHTML = '';
-        if (pendingCount > 0) {
-            loadMoreHTML = `<div style="text-align:center; padding: 12px 0 4px; border-top: 1px dashed rgba(255,255,255,0.05); margin-top: 8px;">
-                 <span style="font-family:var(--fm-font-mono); font-size:0.6rem; color:var(--fm-fg-muted); letter-spacing:2px; text-transform:uppercase;">[ <i class="ph-thin ph-asterisk" style="animation:spin 1s linear infinite; display:inline-block;"></i> INTERCEPTING SIGNAL... ]</span></div>`;
-        } else if (visibleComments.length > 0) {
-            loadMoreHTML = `<div style="text-align:center; padding: 12px 0 4px; border-top: 1px dashed rgba(255,255,255,0.05); margin-top: 8px;">
-                 <button id="fm-load-more-${post.id}" onclick="ForumModule.loadMoreComments('${post.id}')" style="background:transparent; border:none; font-family:var(--fm-font-mono); font-size:0.6rem; color:var(--fm-fg-muted); letter-spacing:2px; cursor:pointer; text-transform:uppercase; transition:0.2s;" onmousedown="this.style.color='#fff'" onmouseup="this.style.color='var(--fm-fg-muted)'">
-                    [ DECRYPT MORE LOGS... ]</button></div>`;
-        }
-
-        return `
-            <div class="inline-comments" id="fm-comments-${post.id}">
-                ${commentsList}
-                ${loadMoreHTML}
-                <div class="minimal-input-area">
-                    <span class="console-prefix">>_</span>
-                    <input type="text" class="minimal-input" id="fm-input-${post.id}" placeholder="添加观测记录..." autocomplete="off">
-                    <button class="minimal-send-btn" onclick="ForumModule.addComment('${post.id}')">SEND</button>
-                </div>
-            </div>
-        `;
+    async function publishPost() {
+        alert('发布成功！本地演示模式');
+        closePanel('fm-compose-panel');
     }
 
-    function renderPostHTML(post, avatarUrl, eventImgUrl) {
-        let visualHTML = '', interactionHTML = ''; 
-        let fakeImgHTML = '';
-        if (post.hasImage && post.imageDesc) {
-            fakeImgHTML = `
-            <div class="fm-fake-img-wrap" onclick="this.classList.toggle('revealed')">
-               <div class="fm-fake-img-cover">
-                   <i class="ph-thin ph-lock-key"></i>
-                   <span>[ ENCRYPTED VISUAL ]<br>TAP TO DECRYPT</span>
-               </div>
-               <div class="fm-fake-img-desc">${_escHtml(post.imageDesc)}</div>
-            </div>`;
-        }
-        if (post.type === 'event') {
-            visualHTML = `
-                <div class="event-visual">
-                    <img src="${eventImgUrl}" class="event-bg">
-                    <div class="event-overlay">
-                        <div class="meta-data">[WORLD_EVENT] // TIME: ${_formatDate(post.timestamp)}</div>
-                        <div style="flex: 1; display: flex; flex-direction: column; justify-content: center; margin-top: 30px;">
-                            <div class="event-title">${_escHtml(post.title)}</div>
-                            <div class="event-desc">${_escHtml(post.desc)}</div>
-                        </div>
-                        <div class="inner-interaction">
-                            <div class="int-btn" onclick="ForumModule.toggleComments('${post.id}')" id="fm-btn-msg-${post.id}"><i class="ph ph-chat-centered-text"></i> ${post.comments.length} RESPONSES</div>
-                            <div class="int-btn" onclick="ForumModule.openShareModal('${post.id}')"><i class="ph ph-share-network"></i> SHARE</div>
-                            <div class="int-btn" onclick="ForumModule.deletePost('${post.id}')" style="margin-left:auto;"><i class="ph-thin ph-trash"></i> DELETE</div>
-                        </div>
-                    </div>
-                    <div class="floating-bubble bubble-2"><i class="ph ph-warning-circle"></i> NEW_EVENT</div>
-                    ${post.comments.length > 0 ? `<div class="floating-bubble bubble-1"><img src="${post.comments[0]._avatarUrl}" style="width:18px;height:18px;border-radius:50%; object-fit:cover; margin-right:4px;"><span style="color:${_getMorandiColor(post.comments[0].author)}">${_escHtml(post.comments[0].author)}</span> 留下了记录</div>` : ''}
-                </div>
-            `;
-        } else if (post.type === 'treehole') {
-            visualHTML = `<div class="treehole-visual"><div class="th-badge">CLASSIFIED</div><div class="meta-data" style="margin-bottom: 12px; border-bottom:1px solid var(--fm-line); padding-bottom:8px;"><i class="ph ph-lock-key"></i> ENCRYPTED_LOG // DECRYPT_ON_HOVER</div><div class="th-content">${_escHtml(post.content)}</div>${fakeImgHTML}</div>`;
-            interactionHTML = `<div class="interaction-bar"><div style="display:flex;gap:20px;"><div class="int-btn" onclick="ForumModule.toggleComments('${post.id}')" id="fm-btn-msg-${post.id}"><i class="ph ph-chat-centered-text"></i> ${post.comments.length}</div><div class="int-btn" onclick="ForumModule.openShareModal('${post.id}')"><i class="ph ph-share-network"></i></div></div><div class="int-btn" onclick="ForumModule.deletePost('${post.id}')"><i class="ph-thin ph-trash"></i></div></div>`;
-        }
-        return `<div class="post-card">${visualHTML}${interactionHTML}${renderCommentsHTML(post)}</div>`;
+    function deletePost(id) {
+        _postToDelete = id;
+        document.getElementById('fm-delete-modal').classList.add('active');
     }
 
-    function prepareReply(postId, authorName) {
-        const input = document.getElementById(`fm-input-${postId}`);
-        if (input) {
-            const prefix = `回复 @${authorName}: `;
+    function cancelDelete() {
+        _postToDelete = null;
+        document.getElementById('fm-delete-modal').classList.remove('active');
+    }
+
+    function removeEventImg() {
+        document.getElementById('fm-event-img-wrap').style.display = 'none';
+        document.getElementById('fm-event-upload-box').style.display = 'block';
+    }
+
+    async function saveWorldView() {
+        alert('世界观已保存');
+        closePanel('fm-world-panel');
+    }
+
+    async function refreshNPCFeed() {
+        alert('已刷新暗网信号');
+        loadPosts();
+    }
+
+    return {
+        init,
+        onEnter: init,
+        filterFeed,
+        openPanel,
+        closePanel,
+        switchComposeType,
+        publishPost,
+        deletePost,
+        cancelDelete,
+        removeEventImg,
+        saveWorldView,
+        refreshNPCFeed
+    };
+})();
+
+// 启动
+ForumModule.init();
+    </script>
+</body>
+</html>
            
